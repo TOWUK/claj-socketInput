@@ -86,6 +86,7 @@ public class Main implements ApplicationListener {
     app.addListener(ClajVars.control = new ClajControl());
     app.addListener(ClajVars.plugins = new Plugins(ClajVars.pluginsDirectory, ClajVars.control));
     app.addListener(ClajVars.relay = new ClajRelay(ClajVars.port, true));
+    app.addListener(ClajVars.socketInput = new SocketInput(ClajVars.control));
 
     app.post(() -> {
       isLoading = false;

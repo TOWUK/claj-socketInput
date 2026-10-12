@@ -46,6 +46,7 @@ public class ClajVars {
   public static Fi pluginsDirectory = workingDirectory.child("plugins");
 
   public static Plugins plugins;
+  public static SocketInput socketInput;
 
   public static final String[] tags = {"&lc&fb[D]&fr", "&lb&fb[I]&fr", "&ly&fb[W]&fr", "&lr&fb[E]", ""};
   public static DateTimeFormatter logDateformat = DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm:ss");

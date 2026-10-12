@@ -370,6 +370,17 @@ public class ClajConfig {
       This increases speed and processing capacity, at the cost of double or triple of the RAM
       and slightly higher CPU usage. This can be helpful for heavy load servers.
       &fiWARNING: this is currently experimental, setting this to false can break things.&fr
+      """.trim(),
+      """
+      Whether to enable TCP socket input for remote command execution.
+      Like Mindustry's socketInput.
+      """.trim(),
+      """
+      The port for socket input.
+      """.trim(),
+      """
+      The bind address for socket input.
+      Use "localhost" for local-only access, or "0.0.0.0" for all interfaces.
       """.trim()
   ).reverse();
 
@@ -402,7 +413,10 @@ public class ClajConfig {
   public static Field<Integer> raterLifetime = new Field<>("rater-tifetime", fieldDescs.pop(), 5 * 60);
   public static Field<Integer> afkTime = new Field<>("afk-time", fieldDescs.pop(), 2 * 60);
   public static Field<Boolean> dualThread = new Field<>("dual-thread", fieldDescs.pop(), true);
-
+  // Socket input
+  public static Field<Boolean> socketInput        = new Field<>("socket-input", fieldDescs.pop(), true);
+  public static Field<Integer> socketInputPort    = new Field<>("socket-input-port", fieldDescs.pop(), 6860);
+  public static Field<String>  socketInputAddress = new Field<>("socket-input-address", fieldDescs.pop(), "localhost");
   // Other fields having their own command
   public static SetField<String> blacklist = new SetField<>("blacklist", "", String.class, ObjectSet::new);
   public static SetField<ClajType> typeBlacklist = new SetField<>("type-blacklist", "", ClajType.class, ObjectSet::new);
