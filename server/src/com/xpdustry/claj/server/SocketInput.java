@@ -33,6 +33,9 @@ public class SocketInput implements ApplicationListener {
     private static final int MAX_QUEUE = 50;
     private static final int READ_TIMEOUT_MS = 10_000;
 
+    /** Guards against re-hooking {@link System#out} if {@link #init()} is called twice. */
+    private static boolean hooked = false;
+
     private final CommandHandler handler;
     private ServerSocket server;
     private volatile OutputStream output;
@@ -58,28 +61,32 @@ public class SocketInput implements ApplicationListener {
 
         // Duplicate stdout into the socket, preserving console logs.
         // Errors are swallowed: a dead client must never crash CLaJ.
-        System.setOut(new PrintStream(new OutputStream() {
-            @Override public void write(int b) throws IOException {
-                original.write(b);
-                OutputStream o = output;
-                if (o != null) try { o.write(b); } catch (IOException ignored) {}
-            }
-            @Override public void write(byte[] b, int off, int len) throws IOException {
-                original.write(b, off, len);
-                OutputStream o = output;
-                if (o != null) try { o.write(b, off, len); } catch (IOException ignored) {}
-            }
-            @Override public void flush() throws IOException {
-                original.flush();
-                OutputStream o = output;
-                if (o != null) try { o.flush(); } catch (IOException ignored) {}
-            }
-        }, true));
+        if (!hooked) {
+            hooked = true;
+            System.setOut(new PrintStream(new OutputStream() {
+                @Override public void write(int b) throws IOException {
+                    original.write(b);
+                    OutputStream o = output;
+                    if (o != null) try { o.write(b); } catch (IOException ignored) {}
+                }
+                @Override public void write(byte[] b, int off, int len) throws IOException {
+                    original.write(b, off, len);
+                    OutputStream o = output;
+                    if (o != null) try { o.write(b, off, len); } catch (IOException ignored) {}
+                }
+                @Override public void flush() throws IOException {
+                    original.flush();
+                    OutputStream o = output;
+                    if (o != null) try { o.flush(); } catch (IOException ignored) {}
+                }
+            }, true));
+        }
 
         Threads.daemon("Socket Input", () -> listen(address, port));
     }
 
-    private void restart(String address, int port) {
+    /** Atomically close the old socket and start a new listener thread. */
+    private synchronized void restart(String address, int port) {
         ServerSocket old = server;
         server = null;
         if (old != null) try { old.close(); } catch (Exception ignored) {}
@@ -153,5 +160,6 @@ public class SocketInput implements ApplicationListener {
         ServerSocket old = server;
         server = null;
         try { if (old != null) old.close(); } catch (Exception ignored) {}
+        System.setOut(original);
     }
 }
