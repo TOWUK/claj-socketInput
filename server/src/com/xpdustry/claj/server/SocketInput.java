@@ -96,15 +96,25 @@ public class SocketInput implements ApplicationListener {
     }
 
     private void listen(String address, int port) {
-        ServerSocket local;
+        ServerSocket local = null;
         try {
             local = new ServerSocket();
             local.setReuseAddress(true);
             local.bind(new InetSocketAddress(InetAddress.getByName(address), port), MAX_QUEUE);
-            server = local;
+
+            // Guard against a racing restart that already installed its own socket.
+            synchronized (this) {
+                if (server != null) {
+                    try { local.close(); } catch (Exception ignored) {}
+                    return;
+                }
+                server = local;
+            }
+
             Log.info("SocketInput listening on @:@", address, port);
         } catch (Exception e) {
             Log.err("SocketInput failed to start", e);
+            try { if (local != null) local.close(); } catch (Exception ignored) {}
             return;
         }
 
@@ -131,6 +141,8 @@ public class SocketInput implements ApplicationListener {
                     if (!s.isEmpty()) synchronized (handler) { handler.handleMessage(s); }
             }
             output.flush();
+        } catch (SocketTimeoutException ignored) {
+            // Client idle too long - normal.
         } catch (SocketException ignored) {
             // Client disconnected - normal.
         } catch (Exception e) {
@@ -160,6 +172,9 @@ public class SocketInput implements ApplicationListener {
         ServerSocket old = server;
         server = null;
         try { if (old != null) old.close(); } catch (Exception ignored) {}
-        System.setOut(original);
+        if (hooked) {
+            hooked = false;
+            System.setOut(original);
+        }
     }
 }
