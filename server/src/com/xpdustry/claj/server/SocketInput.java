@@ -29,17 +29,26 @@ import java.net.*;
 import java.nio.charset.StandardCharsets;
 
 public class SocketInput implements ApplicationListener {
+    /** Maximum length of a single command line, in bytes. Prevents OOM. */
     private static final int MAX_LINE = 512;
+    /** Accept backlog — how many pending connections the OS may queue. */
     private static final int MAX_QUEUE = 50;
+    /** Idle clients are closed after this many milliseconds of silence. */
     private static final int READ_TIMEOUT_MS = 10_000;
+    /** Socket-to-output buffer size, in bytes. */
+    private static final int OUT_BUFFER = 8192;
+    /** Socket-from-input buffer size, in bytes. */
+    private static final int IN_BUFFER = 512;
 
-    /** Guards against re-hooking {@link System#out} if {@link #init()} is called twice. */
+    /** Guards against re-hooking System.out if init() is called twice. */
     private static boolean hooked = false;
 
     private final CommandHandler handler;
+    private final PrintStream original = System.out;
+
     private ServerSocket server;
     private volatile OutputStream output;
-    private final PrintStream original = System.out;
+    private volatile boolean disposed = false;
 
     public SocketInput(CommandHandler handler) {
         this.handler = handler;
@@ -52,17 +61,19 @@ public class SocketInput implements ApplicationListener {
             return;
         }
 
+        disposed = false;
+
         String address = ClajConfig.socketInputAddress.get();
         int port = ClajConfig.socketInputPort.get();
 
-        // Restart on config change
+        // Restart listener when config changes (Mindustry-style live config).
         ClajConfig.socketInputPort.changed(p -> restart(ClajConfig.socketInputAddress.get(), p));
         ClajConfig.socketInputAddress.changed(a -> restart(a, ClajConfig.socketInputPort.get()));
 
-        // Duplicate stdout into the socket, preserving console logs.
+        // Mirror everything written to System.out into the active socket.
         // Errors are swallowed: a dead client must never crash CLaJ.
+        // Guarded by 'hooked' so we don't chain wrappers on repeated init().
         if (!hooked) {
-            hooked = true;
             System.setOut(new PrintStream(new OutputStream() {
                 @Override public void write(int b) throws IOException {
                     original.write(b);
@@ -80,12 +91,13 @@ public class SocketInput implements ApplicationListener {
                     if (o != null) try { o.flush(); } catch (IOException ignored) {}
                 }
             }, true));
+            hooked = true;
         }
 
         Threads.daemon("Socket Input", () -> listen(address, port));
     }
 
-    /** Atomically close the old socket and start a new listener thread. */
+    /** Atomically close the current socket and start a new listener thread. */
     private synchronized void restart(String address, int port) {
         ServerSocket old = server;
         server = null;
@@ -102,9 +114,9 @@ public class SocketInput implements ApplicationListener {
             local.setReuseAddress(true);
             local.bind(new InetSocketAddress(InetAddress.getByName(address), port), MAX_QUEUE);
 
-            // Guard against a racing restart that already installed its own socket.
+            // Guard against a racing restart/dispose that already cleared the field.
             synchronized (this) {
-                if (server != null) {
+                if (server != null || disposed) {
                     try { local.close(); } catch (Exception ignored) {}
                     return;
                 }
@@ -122,7 +134,7 @@ public class SocketInput implements ApplicationListener {
             try (Socket c = local.accept()) {
                 handle(c);
             } catch (SocketException e) {
-                // Server stopped - normal.
+                // Server closed — normal on restart/dispose.
             } catch (Exception e) {
                 if (!local.isClosed()) Log.err("SocketInput accept", e);
             }
@@ -133,18 +145,18 @@ public class SocketInput implements ApplicationListener {
         try {
             c.setTcpNoDelay(true);
             c.setSoTimeout(READ_TIMEOUT_MS);
-            output = new BufferedOutputStream(c.getOutputStream(), 8192);
+            output = new BufferedOutputStream(c.getOutputStream(), OUT_BUFFER);
 
-            try (InputStream in = new BufferedInputStream(c.getInputStream(), 512)) {
+            try (InputStream in = new BufferedInputStream(c.getInputStream(), IN_BUFFER)) {
                 String s;
                 while ((s = readLine(in)) != null)
                     if (!s.isEmpty()) synchronized (handler) { handler.handleMessage(s); }
             }
             output.flush();
         } catch (SocketTimeoutException ignored) {
-            // Client idle too long - normal.
+            // Client idle too long — normal.
         } catch (SocketException ignored) {
-            // Client disconnected - normal.
+            // Client disconnected — normal.
         } catch (Exception e) {
             Log.err("SocketInput client", e);
         } finally {
@@ -168,6 +180,7 @@ public class SocketInput implements ApplicationListener {
 
     @Override
     public void dispose() {
+        disposed = true;
         output = null;
         ServerSocket old = server;
         server = null;
