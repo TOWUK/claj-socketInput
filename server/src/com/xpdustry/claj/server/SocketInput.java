@@ -33,8 +33,6 @@ public class SocketInput implements ApplicationListener {
     private static final int MAX_LINE = 512;
     /** Accept backlog — how many pending connections the OS may queue. */
     private static final int MAX_QUEUE = 50;
-    /** Idle clients are closed after this many milliseconds of silence. */
-    private static final int READ_TIMEOUT_MS = 10_000;
     /** Socket-to-output buffer size, in bytes. */
     private static final int OUT_BUFFER = 8192;
     /** Socket-from-input buffer size, in bytes. */
@@ -144,7 +142,6 @@ public class SocketInput implements ApplicationListener {
     private void handle(Socket c) {
         try {
             c.setTcpNoDelay(true);
-            c.setSoTimeout(READ_TIMEOUT_MS);
             output = new BufferedOutputStream(c.getOutputStream(), OUT_BUFFER);
 
             try (InputStream in = new BufferedInputStream(c.getInputStream(), IN_BUFFER)) {
@@ -153,8 +150,6 @@ public class SocketInput implements ApplicationListener {
                     if (!s.isEmpty()) synchronized (handler) { handler.handleMessage(s); }
             }
             output.flush();
-        } catch (SocketTimeoutException ignored) {
-            // Client idle too long — normal.
         } catch (SocketException ignored) {
             // Client disconnected — normal.
         } catch (Exception e) {
