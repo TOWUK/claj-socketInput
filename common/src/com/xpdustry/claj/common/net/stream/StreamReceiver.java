@@ -41,7 +41,7 @@ public class StreamReceiver {
     if (cbuilders == null) cbuilders = new IntMap<>(MAX_STREAMS);
 
     if (packet instanceof StreamHead begin) {
-      if (begin.total >= StreamHead.MAX_STREAM_SIZE)
+      if (begin.total > StreamHead.MAX_STREAM_SIZE)
         throw new RuntimeException("Stream is too big; " + begin.total + ">=" + StreamHead.MAX_STREAM_SIZE);
       if (cbuilders.size >= MAX_STREAMS) throw new RuntimeException("Too many streams");
       cbuilders.put(begin.id, new StreamBuilder(begin));
@@ -70,7 +70,7 @@ public class StreamReceiver {
     if (sbuilders == null) sbuilders = new IntMap<>(16);
 
     if (packet instanceof StreamHead begin) {
-      if (begin.total >= StreamHead.MAX_STREAM_SIZE)
+      if (begin.total > StreamHead.MAX_STREAM_SIZE)
         throw new RuntimeException("Stream is too big for " + connection + "; " +
                                    begin.total + ">=" + StreamHead.MAX_STREAM_SIZE);
       IntMap<StreamBuilder> builders = sbuilders.get(connection.getID(), () -> new IntMap<>(MAX_STREAMS));
