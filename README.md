@@ -1,4 +1,4 @@
-# Copy Link and Join (CLaJ)
+# <img src="icon.png" alt="Icon" width="48" align="right" style="border-radius:20%;"> Copy Link and Join (CLaJ)
 This system allows you to play with your friends, just by creating a room, copying the link and sending it to your friends. <br>
 In fact it's pretty much the same thing as Hamachi, but in a Mindustry mod.
 

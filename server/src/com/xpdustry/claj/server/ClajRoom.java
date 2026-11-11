@@ -135,10 +135,10 @@ public class ClajRoom implements NetListener {
       return false;
     }
 
+    setRoom(connection); // Set and check first
     sendConnectionJoined(host, connection);
     clientsMap.put(connection.id, connection);
     clients.add(connection);
-    setRoom(connection);
     Events.fire(new ConnectionJoinedEvent(connection, this));
     return true;
   }

@@ -23,10 +23,10 @@ import arc.func.Prov;
 import arc.net.ArcNetException;
 import arc.struct.*;
 import arc.util.Threads;
-import arc.util.pooling.Pool;
 
 import com.xpdustry.claj.common.packets.Packet;
 import com.xpdustry.claj.common.util.FastThreadLocal;
+import com.xpdustry.claj.common.util.Pool;
 
 
 public class ClajNet {
@@ -44,6 +44,13 @@ public class ClajNet {
   private static final Seq<Prov<?>> packets = new Seq<>();
   private static final Seq<ThreadLocal<?>> packetLocals = new Seq<>();
   private static final Seq<Pool<?>> packetPools = new Seq<>();
+
+  public static void clear() {
+    packetIds.clear();
+    packets.clear();
+    packetLocals.clear();
+    packetPools.clear();
+  }
 
   /**
    * Registers a new packet type for serialization. Ignores if already registered.
@@ -135,7 +142,8 @@ public class ClajNet {
     Pool<?> pool = packetPools.get(index);
     if (pool == null) {
       Prov<?> prov = packets.get(index);
-      pool = new Pool<>(8, 128) { protected Object newObject() { return prov.get(); } };
+      pool = new Pool<>(128, prov);
+      pool.fill(8);
       packetPools.set(index, pool);
     }
     return (T)pool.obtain();
