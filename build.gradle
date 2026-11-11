@@ -48,8 +48,8 @@ subprojects {
     def releaseJar = { ModPlatform.ANDROID in toxopid.platforms.get() ? mergeJar : jar }
     dependsOn releaseJar
     manifest.from releaseJar().manifest
-    from { 
-      zipTree(releaseJar().archiveFile) 
+    from {
+      zipTree(releaseJar().archiveFile)
     }
     // Add dependencies
     from {
@@ -85,7 +85,7 @@ project(":api") {
 
 project(":client") {
   toxopid.platforms = [ModPlatform.DESKTOP, ModPlatform.ANDROID]
-  compileJava.options.release = 17 // Mindustry is now using Java 17
+  compileJava.options.release = 25 // Mindustry is now using Java 17
 
   dependencies {
     implementation project(":common")
@@ -99,7 +99,7 @@ project(":client") {
     include "mod.hjson"
     include "icon.png"
   }
-  
+
   // This is badly made... We need to make a fat jar just for dex compilation,
   // as the property only takes one file as argument
   task mergeDependenciesForDexJar(type: Jar) {
@@ -123,6 +123,7 @@ project(":client") {
 project(":server") {
   ext.mainClassName = "com.xpdustry.claj.server.Main"
   toxopid.platforms = [ModPlatform.SERVER]
+  compileJava.options.release = 25
 
   dependencies {
     implementation project(":common")
