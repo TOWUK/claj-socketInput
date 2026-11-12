@@ -107,12 +107,16 @@ public class ClajRoutines {
   // end region
   // region room info
 
+  /**
+   * Requests the room state if not already done, and ensures that pending requests will be answered.
+   * @return whether the state has been requested.
+   */
   public boolean requestRoomState(ClajRoom room, Cons<ClajRoom> sendState) {
-    if (!room.requestState()) return false;
+    boolean requested = room.requestState();
+    if (!requested && pendingInfoTasks.containsKey(room.id)) return false;
     int timeout = ClajConfig.stateTimeout.get();
-    Timer.Task old;
     if (timeout > 0) {
-      old = pendingInfoTasks.put(room.id, Timer.schedule(() -> {
+      Timer.Task old = pendingInfoTasks.put(room.id, Timer.schedule(() -> {
         if (pendingInfoTasks.remove(room.id) != null) sendState.get(room);
       }, timeout));
       if (old != null) old.cancel(); // In case of
@@ -121,7 +125,7 @@ public class ClajRoutines {
       cancelRoomInfoTask(room);
       sendState.get(room);
     }
-    return true;
+    return requested;
   }
 
   public void cancelRoomInfoTask(ClajRoom room) {
@@ -142,7 +146,9 @@ public class ClajRoutines {
   // end region
   // region room list
 
-  //TODO: crappy
+  //TODO: crappy.
+  //TODO2: Pending requests waits for the slowest room host. A non-answering one can delay everyone.
+  //       Send the cached list and refresh in background instead?
   public int requestRoomList(ClajConnection con, ClajType type, LongMap<ClajRoom> fallbackRooms, Cons<Boolean> rejected) {
     if (fallbackRooms == null || type == null) {
       rejected.get(false);
@@ -167,6 +173,7 @@ public class ClajRoutines {
   }
 
   public void updateRoom(ClajRoom room, boolean stateChanged) {
+    if (room.type == null) return; // never listed
     CachedRoomList cache = listCache.get(room.type, (CachedRoomList)null);
     if (cache != null) cache.set(room, stateChanged);
   }

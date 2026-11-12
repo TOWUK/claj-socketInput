@@ -21,7 +21,10 @@ package com.xpdustry.claj.server;
 
 import arc.Files;
 import arc.files.Fi;
+import arc.func.Boolf;
+import arc.func.Boolf2;
 import arc.func.Cons;
+import arc.func.Func;
 import arc.func.Prov;
 import arc.struct.ObjectSet;
 import arc.struct.Seq;
@@ -115,22 +118,20 @@ public class ClajConfig {
     protected T value;
     protected boolean loaded, modified;
 
-    public Field(String key, String desc, T def) { this(key, desc, def, null, true); }
-    public Field(String key, String desc, T def, Cons<T> changed) { this(key, desc, def, changed, true); }
-    public Field(String key, String desc, T def, boolean register) { this(key, desc, def, null, register); }
-    public Field(String key, String desc, T def, Cons<T> changed, boolean register) {
+    public Field(String key, String desc, T def) { this(key, desc, def, null); }
+    public Field(String key, String desc, T def, Cons<T> changed) {
       if (key == null || (key = key.trim()).isEmpty()) throw new IllegalArgumentException("'key' is null");
       if (ClajConfig.get(key) != null) throw new IllegalArgumentException("Field '" + key + "' already exists");
       if (key.equals("reload")) throw new IllegalArgumentException("Reserved key name '" + key + "'");
       if (def == null) throw new IllegalArgumentException("Default value cannot be null");
 
       this.key = key;
-      this.desc = desc == null ? "" : desc;
+      this.desc = desc == null ? "<unknown>" : desc;
       this.defaultValue = def;
       this.type = (Class<T>)def.getClass();
       this.changed = changed == null ? _ -> {} : changed;
 
-      if (register) all.add(this);
+      all.add(this);
       Autosaver.add(this, Autosaver.Priority.normal);
     }
 
@@ -147,10 +148,16 @@ public class ClajConfig {
       return modified;
     }
 
-    protected T checkValue(T value) {
+    protected <V> V checkValue(V value, Class<V> type, boolean forParsing) {
       if (value == null || value.getClass() != type) {
-        String valueType = value == null ? null : value.getClass().getName();
-        String msg = "Invalid value type for " + name() + "; " + valueType + "!=" + type.getName();
+        String msg;
+        if (forParsing) {
+          if (value == null) msg = "Decoded value cannot be null";
+          else msg = "Decoded value must be a " + type.getSimpleName();
+        } else {
+          String valueType = value == null ? null : value.getClass().getName();
+          msg = "Invalid value type for " + name() + "; " + valueType + "!=" + type.getName();
+        }
         throw new IllegalArgumentException(msg);
       }
       return value;
@@ -169,7 +176,7 @@ public class ClajConfig {
       if (loaded) return;
       if (settings == null || !settings.loaded())
         throw new IllegalStateException("Settings are not initialized");
-      value = checkValue(loadValue());
+      value = checkValue(loadValue(), type, false);
       loaded = true;
       modified = false;
     }
@@ -193,11 +200,11 @@ public class ClajConfig {
 
     /** @return {@link #defaultValue} if not {@link #loaded}, else {@link #value}. */
     public T getOrDefault() {
-      return loaded ? value : defaultValue;
+      return loaded ? value : getDefault();
     }
 
     public void set(T value) {
-      this.value = checkValue(value);
+      this.value = checkValue(value, type, false);
       notifyChange();
     }
 
@@ -242,37 +249,51 @@ public class ClajConfig {
      * @throws IllegalArgumentException if decoding failed, or decoded type is not the same.
      */
     public T decode(String value) throws IllegalArgumentException {
+      return parse(value, type, this::decodeValue);
+    }
+
+    protected <V> V parse(String value, Class<V> type, Func<String, V> jsonDecoder)
+    throws IllegalArgumentException {
       // Fast path
-      T decoded = Strings.parsePrimitive(type, value);
+      V decoded = Strings.parsePrimitive(type, value);
       if (decoded != null) return decoded;
       if (type == Boolean.class) throw new IllegalArgumentException("Invalid boolean value");
       // Slow path via json decoding
-      try { decoded = decodeValue(value); }
-      catch (SerializationException e) { throw new IllegalArgumentException(e.getMessage(), e); }
-      if (decoded == null) throw new IllegalArgumentException("Decoded value cannot be null");
-      if (decoded.getClass() == type) return decoded;
-      throw new IllegalArgumentException("Decoded value must be a " + type.getSimpleName());
+      try { decoded = jsonDecoder.get(value); }
+      catch (IllegalArgumentException e) { throw e; } // Useless to wrap
+      catch (Exception e) { throw new IllegalArgumentException(e.getMessage(), e); }
+      return checkValue(decoded, type, true);
     }
   }
 
+  @SuppressWarnings({"unchecked", "rawtypes"})
   public static class SetField<T> extends Field<ObjectSet<T>> {
+    protected static final ObjectSet EMPTY = new ObjectSet<>(0);
+
     public final Class<T> elementType;
     protected final Prov<ObjectSet<T>> defaultMaker;
 
+    public SetField(String key, String desc, Class<T> elementType) {
+      this(key, desc, elementType, ObjectSet::new, null);
+    }
+    public SetField(String key, String desc, Class<T> elementType, Cons<ObjectSet<T>> changed) {
+      this(key, desc, elementType, ObjectSet::new, changed);
+    }
     public SetField(String key, String desc, Class<T> elementType, Prov<ObjectSet<T>> def) {
-      this(key, desc, elementType, def, null, true);
+      this(key, desc, elementType, def, null);
     }
+
     public SetField(String key, String desc, Class<T> elementType, Prov<ObjectSet<T>> def, Cons<ObjectSet<T>> changed) {
-      this(key, desc, elementType, def, changed, true);
-    }
-    public SetField(String key, String desc, Class<T> elementType, Prov<ObjectSet<T>> def, boolean register) {
-      this(key, desc, elementType, def, null, register);
-    }
-    public SetField(String key, String desc, Class<T> elementType, Prov<ObjectSet<T>> def, Cons<ObjectSet<T>> changed,
-                    boolean register) {
-      super(key, desc, new ObjectSet<>(0), changed, register);
+      super(key, desc, EMPTY, changed);
       this.elementType = elementType;
       defaultMaker = def;
+    }
+
+    @Override
+    protected <V> V checkValue(V value, Class<V> type, boolean forParsing) {
+      V v = super.checkValue(value, type, forParsing);
+      if (type == this.type) ((ObjectSet<T>)v).each(e -> checkValue(e, elementType, forParsing));
+      return v;
     }
 
     protected ObjectSet<T> loadValue() { return settings.getOrPut(key, type, elementType, defaultMaker); }
@@ -280,26 +301,18 @@ public class ClajConfig {
     public ObjectSet<T> getDefault() { return defaultMaker.get(); }
     protected ObjectSet<T> decodeValue(String value) { return settings.getJson().fromJson(type, elementType, value); }
     public T decodeElement(String value) throws IllegalArgumentException {
-      try { return settings.getJson().fromJson(elementType, value); }
-      catch (SerializationException e) { throw new IllegalArgumentException(e.getMessage(), e); }
+      return parse(value, elementType, v -> settings.getJson().fromJson(elementType, v));
     }
 
-    public boolean add(T value) {
-      boolean added = get().add(value);
-      if (added) notifyChange();
-      return added;
-    }
-    public boolean remove(T value) {
-      boolean removed = get().remove(value);
-      if (removed) notifyChange();
-      return removed;
-    }
-    public boolean contains(T value) {
-      return get().contains(value);
-    }
-    public void clear() {
-      get().clear();
-      notifyChange();
+    public boolean add(T value) { return action(value, ObjectSet::add, true); }
+    public boolean remove(T value) { return action(value, ObjectSet::remove, true); }
+    public boolean contains(T value) { return action(value, ObjectSet::contains, false); }
+    public void clear() { get().clear(); notifyChange(); }
+
+    protected boolean action(T value, Boolf2<ObjectSet<T>, T> method, boolean notify) {
+      boolean done = method.get(get(), checkValue(value, elementType, false));
+      if (done && notify) notifyChange();
+      return done;
     }
 
     @Override
@@ -321,6 +334,11 @@ public class ClajConfig {
       """
       Maximum number of connections allowed per ip address.
       Keep it high enough for clients sharing the same address. Set to &lb0&lw to disable.
+      """.trim(),
+      """
+      The time to wait for a new connection, to complete its registration, before closing it. (in seconds)
+      A connection can wait up to twice this value.
+      Prevents half-opened connections from piling up. Set to &lb0&lw to disable.
       """.trim(),
       "Maximum number of rooms that can be created on this server. Set to &lb0&lw to disable.",
       """
@@ -400,7 +418,7 @@ public class ClajConfig {
       &fiWARNING: this is currently experimental, setting this to false can break things.&fr
       """.trim(),
       "IP Address Blacklist.",
-      "CLaJ Type Blacklist"
+      "CLaJ Type Blacklist."
   ).reverse();
 
   /** Must be set at initialization and not modified after. {@code -1} means not initialized. */
@@ -409,11 +427,12 @@ public class ClajConfig {
   public static Field<Boolean> debug = new Field<>("debug", fieldDescs.pop(), false,
                                                    v -> Log.level = v ? LogLevel.debug : LogLevel.info);
   public static Field<LogLevel> writeLogLevel = new Field<>("write-log-level", fieldDescs.pop(), LogLevel.err);
-  public static Field<Integer> maxConnections = new Field<>("max-connections", fieldDescs.pop(), 1<<23);
+  public static Field<Integer> maxConnections = new Field<>("max-connections", fieldDescs.pop(), 1<<20);
   public static Field<Integer> connectionLimit = new Field<>("connection-limit", fieldDescs.pop(), 1<<6);
+  public static Field<Integer> registerTimeout = new Field<>("register-timeout", fieldDescs.pop(), 5);
   public static Field<Integer> maxRooms = new Field<>("max-rooms", fieldDescs.pop(), 1<<16);
   public static Field<Integer> roomLimit = new Field<>("room-limit", fieldDescs.pop(), 16);
-  public static Field<Short> clientLimit = new Field<>("client-limit", fieldDescs.pop(), (short)(1<<8));
+  public static Field<Integer> clientLimit = new Field<>("client-limit", fieldDescs.pop(), 1<<7);
   public static Field<Integer> spamLimit = new Field<>("spam-limit", fieldDescs.pop(), 1<<8);
   public static Field<Integer> hostSpamLimit = new Field<>("host-spam-limit", fieldDescs.pop(), 1<<14);
   public static Field<Integer> joinLimit = new Field<>("join-limit", fieldDescs.pop(), 32);
@@ -433,8 +452,8 @@ public class ClajConfig {
   public static Field<Integer> raterLifetime = new Field<>("rater-tifetime", fieldDescs.pop(), 5 * 60);
   public static Field<Integer> afkTime = new Field<>("afk-time", fieldDescs.pop(), 2 * 60);
   public static Field<Boolean> dualThread = new Field<>("dual-thread", fieldDescs.pop(), true);
-  public static SetField<String> blacklist = new SetField<>("blacklist", fieldDescs.pop(), String.class, ObjectSet::new);
-  public static SetField<ClajType> typeBlacklist = new SetField<>("type-blacklist", fieldDescs.pop(), ClajType.class, ObjectSet::new);
+  public static SetField<String> blacklist = new SetField<>("blacklist", fieldDescs.pop(), String.class);
+  public static SetField<ClajType> typeBlacklist = new SetField<>("type-blacklist", fieldDescs.pop(), ClajType.class);
 
   static { fieldDescs = null; } // remove cached desc fields
 }

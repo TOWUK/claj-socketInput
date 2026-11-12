@@ -135,10 +135,11 @@ public class ClajRoom implements NetListener {
       return false;
     }
 
-    setRoom(connection); // Set and check first
-    sendConnectionJoined(host, connection);
+    setRoom(connection); // Will check host
     clientsMap.put(connection.id, connection);
     clients.add(connection);
+    sendConnectionJoined(host, connection);
+    if (closed) return false; // In case of the host connection is broken
     Events.fire(new ConnectionJoinedEvent(connection, this));
     return true;
   }
@@ -318,6 +319,12 @@ public class ClajRoom implements NetListener {
   public boolean isFull() {
     int cap = ClajConfig.clientLimit.get(), n = clients();
     return cap > 0 && n >= cap || maxClients > 0 && n >= maxClients;
+  }
+
+  /** @return whether the host buffer has enough spae to forward a packet. */
+  public boolean canHostReceive(int size) {
+    final int overhead = Short.BYTES + 1 + 1 + Integer.BYTES + 1;
+    return host.connection.getTcpWriteBufferSize() + overhead + size <= ClajRelay.WRITE_BUFFER_SIZE;
   }
 
   /** @return the number of CLaJ clients in this room. */
@@ -543,7 +550,7 @@ public class ClajRoom implements NetListener {
   public static void sendConnectionJoined(ClajConnection dest, ClajConnection joined) {
     ConnectionJoinPacket p = ClajNet.newLocalPacket(cjp);
     p.conID = joined.id;
-    p.addressHash = AddressUtil.hash(joined.connection);
+    p.addressHash = AddressUtil.hash(joined.address);
     dest.send(p);
   }
 

@@ -77,6 +77,7 @@ public class ClajVars {
         return;
       }
 
+      // FIXME: a client can flood the logs by sending garbage. Rate-limit these?
       Log.err(e);
     };
 

@@ -54,7 +54,7 @@ public class ClajEvents {
     }
   }
 
-  /** Currently, the only reason is for packet spam. */
+  /** Currently, the only reasons are packet spam and flooding the room host. */
   public static class ClientKickedEvent {
     public final ClajConnection connection;
 
