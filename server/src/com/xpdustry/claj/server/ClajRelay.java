@@ -46,6 +46,7 @@ import com.xpdustry.claj.server.util.NetworkSpeed;
 import com.xpdustry.claj.server.util.NioUtils;
 
 
+//TODO: ai saying that a udp connection can be hijacked to close a room due to an arcnet design flaw.
 /** CLaJ server main class that doing all the stuff. */
 public class ClajRelay extends Server implements ApplicationListener, NetListenerFilter {
   /** Size of the connections write buffer, in bytes. */
@@ -178,6 +179,7 @@ public class ClajRelay extends Server implements ApplicationListener, NetListene
 
     // Reject blacklisted addresses before allocating the connection buffers
     setConnectFilter(address -> {
+      //TODO: not thread-safe
       boolean blacklisted = ClajConfig.blacklist.contains(address);
       if (blacklisted) warn("Rejected client @ for a blacklisted address.", address);
       return !blacklisted;
@@ -186,7 +188,7 @@ public class ClajRelay extends Server implements ApplicationListener, NetListene
     setDiscoveryHandler((_, r) -> {
       if (versionBuff == null)
         versionBuff = ByteBuffer.allocate(5).put(ClajNet.id).putInt(ClajConfig.serverVersion);
-      r.respond((ByteBuffer)versionBuff.rewind());
+      r.respond((ByteBuffer)versionBuff.rewind()); // Only safe because multicast is disabled
     });
 
     receiver.handle(Connect.class, c -> onConnect(toClajCon(c)));
@@ -643,7 +645,6 @@ public class ClajRelay extends Server implements ApplicationListener, NetListene
     if (connection == null) return false;
     ClajRoom room = connection.currentRoom();
     if (room == null) return false;
-    connection.handleQueue();
     room.received(connection, packet);
     return true;
   }
@@ -1056,6 +1057,8 @@ public class ClajRelay extends Server implements ApplicationListener, NetListene
     if (connection == null) return;
     ClajRoom room = connection.currentRoom();
     if (room != null) {
+      // TODO: ai tell me this can kick the host in extreme case,
+      //       when checking for a client sending too big packets.
       room.message(MessageType.packetSpamming);
       removeClient(connection);
     }

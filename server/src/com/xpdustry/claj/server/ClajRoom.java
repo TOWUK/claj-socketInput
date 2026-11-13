@@ -321,7 +321,8 @@ public class ClajRoom implements NetListener {
     return cap > 0 && n >= cap || maxClients > 0 && n >= maxClients;
   }
 
-  /** @return whether the host buffer has enough spae to forward a packet. */
+  //TODO: not thread-safe so this is approximate, find another way.
+  /** @return whether the host buffer has enough space to forward a packet. */
   public boolean canHostReceive(int size) {
     final int overhead = Short.BYTES + 1 + 1 + Integer.BYTES + 1;
     return host.connection.getTcpWriteBufferSize() + overhead + size <= ClajRelay.WRITE_BUFFER_SIZE;

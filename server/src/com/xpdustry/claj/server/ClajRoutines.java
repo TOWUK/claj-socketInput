@@ -94,7 +94,10 @@ public class ClajRoutines {
     int life = ClajConfig.afkTime.get();
     if (life <= 0) return;
     Timer.Task old = afk.put(room.id, Timer.schedule(() -> {
-      if (afk.remove(room.id) != null) afkClose.run();
+      Timer.Task cur = afk.get(room.id);
+      if (cur == null || cur.isScheduled()) return;
+      afk.remove(room.id);
+      afkClose.run();
     }, life * 60));
     if (old != null) old.cancel(); // should not happen, but in case of
   }
@@ -117,7 +120,10 @@ public class ClajRoutines {
     int timeout = ClajConfig.stateTimeout.get();
     if (timeout > 0) {
       Timer.Task old = pendingInfoTasks.put(room.id, Timer.schedule(() -> {
-        if (pendingInfoTasks.remove(room.id) != null) sendState.get(room);
+        Timer.Task cur = pendingInfoTasks.get(room.id);
+        if (cur == null || cur.isScheduled()) return;
+        pendingInfoTasks.remove(room.id);
+        sendState.get(room);
       }, timeout));
       if (old != null) old.cancel(); // In case of
 
@@ -230,6 +236,7 @@ public class ClajRoutines {
     }
 
     public void set(ClajRoom room, boolean stateChanged) {
+      //TODO: include even ClajRoom#canRequestState is false?
       if (!room.shouldRequestState()) {
         remove(room.id);
         return;

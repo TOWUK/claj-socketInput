@@ -188,6 +188,13 @@ public abstract class ProxyClient extends Client {
     return connecting;
   }
 
+  // Fix a missconception
+  @Override
+  public void close() {
+    close(DcReason.closed);
+    super.close();
+  }
+
   @Override
   public void close(DcReason reason) {
     // To avoid a recursive call if it's sending last packet before cutting tcp connection.

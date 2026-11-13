@@ -31,7 +31,7 @@ import com.xpdustry.claj.common.status.*;
  * Interface to provide client implementation dependent things.
  * <p>
  * Everything must be thread-safe, as they will be run on proxy, pinger or calling threads. <br>
- * With exception of proxy/pinger callbacks, including {@code show*} and {@link #connectClient} methods,
+ * With exception of proxy/pinger callbacks, {@code show*} and {@link #connectClient} methods,
  * as they will be posted to the main thread via {@link #postCallback}.
  */
 public interface ClajProvider {

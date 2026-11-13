@@ -168,17 +168,16 @@ public class ClajConfig {
     }
 
     public void reload() {
-      loaded = false;
-      load();
-    }
-
-    public void load() {
-      if (loaded) return;
       if (settings == null || !settings.loaded())
         throw new IllegalStateException("Settings are not initialized");
       value = checkValue(loadValue(), type, false);
       loaded = true;
       modified = false;
+    }
+
+    public void load() {
+      if (loaded) return;
+      reload();
     }
 
     protected void saveValue() {

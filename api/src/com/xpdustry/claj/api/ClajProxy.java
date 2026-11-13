@@ -226,7 +226,7 @@ public class ClajProxy extends ProxyClient {
   @Override
   protected VirtualConnection conDisconnected(int conId, DcReason reason) {
     if (!roomCreated()) return null;
-    if (testingBroadcast && reason == DcReason.error &&
+    if (testingBroadcast && conId == CON_BROADCAST && reason == DcReason.error &&
         Time.timeSinceMillis(broadcastTestStart) < broadcastTestTimeout) {
       testingBroadcast = broadcastSupported = false;
       return null;
