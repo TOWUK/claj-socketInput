@@ -209,6 +209,7 @@ public class Strings extends arc.util.Strings {
     return compareVersion(currentVersion, newVersion, 0) < 0;
   }
 
+  /** @return whether {@code newVersion} is greater than {@code currentVersion}. */
   public static boolean isVersionAtLeast(String currentVersion, String newVersion, int maxDepth) {
     return compareVersion(currentVersion, newVersion, maxDepth) < 0;
   }

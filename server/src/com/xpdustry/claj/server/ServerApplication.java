@@ -69,12 +69,18 @@ public class ServerApplication implements Application {
       listeners.each(ApplicationListener::update);
       graphics.updateTime();
     }
+    
+    dispose();
+  }
 
+  /** Also disposes the listeners, so a crash still closes the server properly. */
+  @Override
+  public void dispose() {
     listeners.each(l -> {
       l.pause();
       l.dispose();
     });
-    dispose();
+    Application.super.dispose();
   }
 
   @Override

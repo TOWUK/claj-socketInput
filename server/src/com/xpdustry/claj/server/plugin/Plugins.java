@@ -112,7 +112,7 @@ public class Plugins implements ApplicationListener {
 
   /** @return a new logger for the plugin with the specified {@code topicClass}. */
   public PluginLogger getLogger(Class<? extends Plugin> plugin, Class<?> topicClass) {
-    return pluginCache.get(plugin.getClass(), CacheEntry::new)
+    return pluginCache.get(plugin, CacheEntry::new)
                       .getLogger(topicClass, () -> new PluginLogger(plugin, topicClass));
   }
 
@@ -123,7 +123,7 @@ public class Plugins implements ApplicationListener {
 
   /** @return a new logger for the plugin with the specified {@code topic}. */
   public PluginLogger getLogger(Class<? extends Plugin> plugin, String topic) {
-    return pluginCache.get(plugin.getClass(), CacheEntry::new)
+    return pluginCache.get(plugin, CacheEntry::new)
                       .getLogger(topic, () -> new PluginLogger(plugin, topic));
   }
 

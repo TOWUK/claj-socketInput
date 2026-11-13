@@ -92,11 +92,7 @@ public class StreamSender extends InputStreamSender {
 
   public static StreamSender send(Connection connection, Packet packet, int chunkSize, boolean compress) {
     byte id = ClajNet.getId(packet); // will check if the packet is registered
-    ByteArrayBufferOutput buff = new ByteArrayBufferOutput(chunkSize, compress);
-    packet.write(buff);
-    buff.close();
-    if (buff.back.size() > StreamHead.MAX_STREAM_SIZE)
-      throw new RuntimeException("Stream is too big");
+    ByteArrayBufferOutput buff = serialize(packet, chunkSize, compress);
     InputStream in = new ByteArrayInputStream(buff.back.getBytes(), 0, buff.back.size());
     return new StreamSender(connection, in, id, buff.back.size(), chunkSize, buff.compressed);
   }
@@ -111,11 +107,27 @@ public class StreamSender extends InputStreamSender {
 
   public static PreparedStream prepare(Packet packet, int chunkSize, boolean compress) {
     byte id = ClajNet.getId(packet); // will check if the packet is registered
-    ByteArrayBufferOutput buff = new ByteArrayBufferOutput(chunkSize,  compress);
+    ByteArrayBufferOutput buff = serialize(packet, chunkSize, compress);
+    return new PreparedStream(buff.back, id, chunkSize, buff.compressed);
+  }
+
+  /**
+   * Serializes the packet, optionally compressed. <br>
+   * Compression is dropped if it makes the data exceed {@link StreamHead#MAX_STREAM_SIZE}
+   * (incompressible data), as the uncompressed one may still fit.
+   * @throws RuntimeException if the data is too big for a stream.
+   */
+  protected static ByteArrayBufferOutput serialize(Packet packet, int chunkSize, boolean compress) {
+    ByteArrayBufferOutput buff = write(packet, chunkSize, compress);
+    if (compress && buff.back.size() > StreamHead.MAX_STREAM_SIZE) buff = write(packet, chunkSize, false);
+    if (buff.back.size() > StreamHead.MAX_STREAM_SIZE) throw new RuntimeException("Stream is too big");
+    return buff;
+  }
+
+  private static ByteArrayBufferOutput write(Packet packet, int chunkSize, boolean compress) {
+    ByteArrayBufferOutput buff = new ByteArrayBufferOutput(chunkSize, compress);
     packet.write(buff);
     buff.close();
-    if (buff.back.size() > StreamHead.MAX_STREAM_SIZE)
-      throw new RuntimeException("Stream is too big");
-    return new PreparedStream(buff.back, id, chunkSize, buff.compressed);
+    return buff;
   }
 }

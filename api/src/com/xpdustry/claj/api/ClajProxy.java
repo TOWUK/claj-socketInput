@@ -113,15 +113,15 @@ public class ClajProxy extends ProxyClient {
 
   protected void runRoomCreated(long roomId) {
     if (roomCreated()) return;
-    this.roomId = roomId;
-    String address = getRemoteAddressTCP() != null ? getRemoteAddressTCP().getHostString() : connectHost.getHostName();
-    link = new ClajLink(address, connectTcpPort, roomId);
-
     // 0 is not allowed since it's used to specify an uncreated room
     if (roomId == UNCREATED_ROOM) {
       runRoomClose(CloseReason.error);
       return;
     }
+    this.roomId = roomId;
+    String address = getRemoteAddressTCP() != null ? getRemoteAddressTCP().getHostString() : connectHost.getHostName();
+    link = new ClajLink(address, connectTcpPort, roomId);
+
     if (roomCreated != null) postTask(roomCreated, link);
     notifyConfiguration();
     if (isPublic) notifyRoomState();
@@ -226,7 +226,7 @@ public class ClajProxy extends ProxyClient {
   @Override
   protected VirtualConnection conDisconnected(int conId, DcReason reason) {
     if (!roomCreated()) return null;
-    if (testingBroadcast && reason == DcReason.error &&
+    if (testingBroadcast && conId == CON_BROADCAST && reason == DcReason.error &&
         Time.timeSinceMillis(broadcastTestStart) < broadcastTestTimeout) {
       testingBroadcast = broadcastSupported = false;
       return null;

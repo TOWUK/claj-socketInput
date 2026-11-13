@@ -27,7 +27,7 @@ import com.xpdustry.claj.common.util.Strings;
  * Only {@code majorVersion} is important. <br>
  * {@code protocolVersion} is discarded, as it's always {@code 2} (for this project).
  * Different CLaJ types must not be compatible with each others. <br>
- * As well as {@code minorVersion} (optional), because it's represents changes 
+ * As well as {@code minorVersion} (optional), because it's represents changes
  * that doesn't affect the protocol itself.
  */
 public class ClajVersion implements Comparable<ClajVersion> {
@@ -60,26 +60,28 @@ public class ClajVersion implements Comparable<ClajVersion> {
   public String toString() {
     return protocolVersion + "." + majorVersion + "." + minorVersion;
   }
-  
+
   // Comparison methods
-  
+
   @Override
-  public int compareTo(ClajVersion other) { 
-    return compare(this, other); 
+  public int compareTo(ClajVersion other) {
+    return compare(this, other);
   }
-  
-  public int compareTo(String other) { 
-    return Strings.compareVersion(toString(), other); 
+
+  public int compareTo(String other) {
+    return Strings.compareVersion(toString(), other);
   }
-  
+
+  /** @return whether this version is greater or equals to {@code version}. */
   public boolean isAtLeast(ClajVersion version) {
-    return isVersionAtLeast(this, version);
+    return compareTo(version) >= 0;
   }
-    
+
+  /** @return whether this version is greater or equals to {@code version}. */
   public boolean isAtLeast(String version) {
-    return Strings.isVersionAtLeast(toString(), version);
+    return compareTo(version) >= 0;
   }
-    
+
   public static int compare(ClajVersion current, ClajVersion other) {
     if (current.protocolVersion != other.protocolVersion)
       return current.protocolVersion < other.protocolVersion ? -1 : 1;
@@ -89,15 +91,14 @@ public class ClajVersion implements Comparable<ClajVersion> {
       return current.minorVersion < other.minorVersion ? -1 : 1;
     return 0;
   }
-    
+
+  /** @return whether {@code other} is greater than {@code current}. */
   public static boolean isVersionAtLeast(ClajVersion current, ClajVersion other) {
-    return other.protocolVersion > current.protocolVersion
-        || other.majorVersion > current.majorVersion
-        || other.minorVersion > current.minorVersion;
+    return compare(current, other) < 0;
   }
-  
+
   // Parsing methods
-  
+
   public static ClajVersion of(String version) throws IllegalArgumentException {
     int i = -1;
 
@@ -108,16 +109,16 @@ public class ClajVersion implements Comparable<ClajVersion> {
     int minorVersion = i == -1 ? 0 : parse(version, ++i, (i = version.indexOf('.', i)) == -1 ? version.length() : i);
     if (minorVersion < 0) throw makeFormatError("minorVersion", minorVersion);
     if (i != -1) throw new IllegalArgumentException("Too many version parts");
-    
+
     return new ClajVersion(protocolVersion, majorVersion, minorVersion);
   }
-  
-  public static ClajVersion of(int protocolVersion, int majorVersion, int minorVersion) 
+
+  public static ClajVersion of(int protocolVersion, int majorVersion, int minorVersion)
   throws IllegalArgumentException {
     if (protocolVersion < 0) throw makeFormatError("protocolVersion", -3);
     if (majorVersion < 0) throw makeFormatError("majorVersion", -3);
     if (minorVersion < 0) throw makeFormatError("minorVersion", -3);
-    
+
     return new ClajVersion(protocolVersion, majorVersion, minorVersion);
   }
 

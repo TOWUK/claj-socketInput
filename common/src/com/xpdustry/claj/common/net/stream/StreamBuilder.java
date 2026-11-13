@@ -81,7 +81,7 @@ public class StreamBuilder {
       stream.write(bytes);
       stream.flush();
       reads += bytes.length;
-      //TODO: check for uncompressed data?
+      //TODO: check for uncompressed data? this can be a zip bomb
     } catch (IOException e) { throw new RuntimeException(e); }
   }
 

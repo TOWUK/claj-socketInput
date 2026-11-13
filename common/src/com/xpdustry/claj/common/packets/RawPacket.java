@@ -82,6 +82,7 @@ public class RawPacket implements Packet {
     ByteBuffer data = data();
     int pos = data.position();
     RawPacket copy = new RawPacket();
+    //TODO: copy is never released, reallocate instead?
     copy.flipIfNeeded(data.remaining()).put(data).flip();
     data.position(pos);
     return copy;
